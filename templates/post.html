@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ post.title }} – CodeBlog</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <span class="blog">CODE<span style="color:var(--accent)">.</span>BLOG</span>
+  </div>
+  <div class="nav-links">
+    <a href="{{ url_for('index') }}">Trang chủ</a>
+  </div>
+</nav>
+
+<div class="post-detail-wrap">
+  <a class="back-link" href="{{ url_for('index') }}">← Quay lại danh sách</a>
+
+  <!-- Nội dung bài viết là trusted content (do admin viết), không liên quan tới demo XSS -->
+  <div class="post-detail-thumb" style="background:{{ post.bg }}">
+    {% if post.image %}
+      <img src="{{ post.image }}" alt="{{ post.title }}" class="post-detail-thumb-img" />
+    {% else %}
+      <span>{{ post.emoji }}</span>
+    {% endif %}
+  </div>
+  <div class="post-meta">
+    <span class="tag">{{ post.tag }}</span>
+    <span class="post-date">📅 {{ post.date }}</span>
+    <span class="post-date" style="margin-left:auto">✍️ {{ post.author }}</span>
+  </div>
+  <h1 class="post-detail-title">{{ post.title }}</h1>
+  <div class="full-content">{{ post.content | safe }}</div>
+
+  <div class="content-divider"></div>
+
+  <div class="comments-section">
+    <h3>💬 Bình luận (<span id="commentCount">0</span>)</h3>
+
+    <div class="comment-form">
+      <div class="comment-form-row">
+        <input type="text" id="cmtName" placeholder="Tên của bạn *" />
+        <input type="email" id="cmtEmail" placeholder="Email (không hiển thị)" />
+      </div>
+      <textarea id="cmtText" placeholder="Viết bình luận của bạn..."></textarea>
+      <button class="submit-btn" onclick="submitComment()">📨 Gửi bình luận</button>
+    </div>
+
+    <div class="comments-list" id="commentsList"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- FOOTER -->
+<footer>
+  <p>Made with ❤️ by <span>CodeBlog</span> &nbsp;|&nbsp; © 2026 &nbsp;|&nbsp; Chia sẻ kiến thức lập trình</p>
+</footer>
+
+<script>
+  const POST_ID = {{ post.id }};
+</script>
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/post.js') }}"></script>
+</body>
+</html>
