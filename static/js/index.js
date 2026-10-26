@@ -1,9 +1,4 @@
-/* ═══════════════════════════════════════════
-   index.js — trang danh sách bài viết
-   Gồm 2 demo trên cùng trang:
-     1) Reflected XSS  — thanh tìm kiếm (server echo q)
-     2) DOM-based XSS  — bộ lọc theo thẻ chia sẻ qua link (?tag=...)
-   ═══════════════════════════════════════════ */
+
 const API = '/api';
 
 let allPosts = [];
@@ -74,12 +69,12 @@ function renderPagination() {
   const pg = document.getElementById('pagination');
   if (total <= 1) { pg.innerHTML = ''; return; }
   pg.innerHTML = Array.from({ length: total }, (_, i) => i + 1).map(n =>
-    `<button class="page-btn${n === currentPage ? ' active' : ''}" onclick="goPage(${n})">${n}</button>`
+    `<button class="page-btn${n === currentPage ? ' active' : ''}" data-action="goPage" data-arg="${n}">${n}</button>`
   ).join('');
 }
 
 function goPage(n) {
-  currentPage = n;
+  currentPage = Number(n);
   renderPosts();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -98,12 +93,12 @@ function renderSidebar() {
   const allTags = [...new Set(allPosts.map(p => p.tag))];
   tagList.innerHTML = allTags.map(tag => {
     const c = TAG_COLORS[tag] || { bg: '#f3f4f6', color: '#374151' };
-    return `<span class="lang-tag" style="background:${c.bg};color:${c.color};border-color:${c.color}20" onclick="filterByTagAndShare('${tag}')">${tag}</span>`;
+    return `<span class="lang-tag" style="background:${c.bg};color:${c.color};border-color:${c.color}20" data-action="filterTag" data-arg="${tag}">${tag}</span>`;
   }).join('');
 
   const popList = document.getElementById('popularList');
   popList.innerHTML = allPosts.slice(0, 4).map((p, i) => `
-    <li onclick="location.href='/post/${p.id}'">
+    <li data-action="openPost" data-arg="${p.id}">
       <div class="pop-num">${i + 1}</div>
       <span class="pop-title">${p.title}</span>
     </li>
@@ -111,12 +106,9 @@ function renderSidebar() {
 }
 
 function showAll() {
-  filteredPosts = [...allPosts];
-  currentPage = 1;
-  document.getElementById('searchInput').value = '';
-  document.getElementById('searchStatusBar').innerHTML = '';
-  clearTagFilter();
-  renderPosts();
+  // Banner tìm kiếm giờ do server render từ ?q=..., nên để xoá hẳn (và
+  // quay về mode mặc định) cần điều hướng thật, không chỉ xoá DOM bằng JS.
+  location.href = '/';
 }
 
 function filterByCategory(cat) {
@@ -126,80 +118,21 @@ function filterByCategory(cat) {
   renderPosts();
 }
 
-/* ═══════════════════════════════════════════
-   TÌM KIẾM — DEMO REFLECTED XSS
-   Server (/api/search) chỉ "echo" lại từ khoá (q) không hề qua xử lý.
-   Lỗ hổng thật sự nằm ở renderSearchStatus(): chế độ Vulnerable chèn
-   thẳng bằng innerHTML, chế độ Secure dùng escapeHtml()/textContent.
-   ═══════════════════════════════════════════ */
-async function handleSearch() {
-  const q = document.getElementById('searchInput').value.trim();
-  const statusBar = document.getElementById('searchStatusBar');
-
-  // Đồng bộ URL để demo có thể gửi dưới dạng link (?q=...), giống
-  // đúng kịch bản tấn công reflected-XSS thực tế (gửi nạn nhân 1 link).
-  const url = new URL(window.location.href);
-  if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
-  history.replaceState(null, '', url);
-
-  if (!q) {
-    statusBar.innerHTML = '';
-    filteredPosts = [...allPosts];
-    currentPage = 1;
-    renderPosts();
-    return;
-  }
-
+async function applySearchFromUrl() {
+  const q = new URLSearchParams(window.location.search).get('q');
+  if (!q) return;
   try {
-    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`, {
+      headers: { Accept: 'application/json' },
+    });
     const data = await res.json();
-
     filteredPosts = data.results;
     currentPage = 1;
     renderPosts();
-    renderSearchStatus(data.query, data.total);
   } catch (err) {
     console.error('Lỗi tìm kiếm:', err);
   }
 }
-
-function renderSearchStatus(query, total) {
-  const statusBar = document.getElementById('searchStatusBar');
-  const mode = getMode();
-
-  if (mode === 'vulnerable') {
-    /* ⚠️ VULNERABLE: innerHTML + dữ liệu chưa encode = Reflected XSS */
-    statusBar.innerHTML = `Kết quả tìm kiếm cho: <strong>${query}</strong> (${total} kết quả)`;
-  } else {
-    /* ✅ SECURE: escape trước khi chèn vào HTML */
-    statusBar.innerHTML = `Kết quả tìm kiếm cho: <strong>${escapeHtml(query)}</strong> (${total} kết quả)`;
-  }
-}
-
-function applySearchFromUrl() {
-  const q = new URLSearchParams(window.location.search).get('q');
-  if (!q) return;
-  document.getElementById('searchInput').value = q;
-  handleSearch();
-}
-
-/* ═══════════════════════════════════════════
-   LỌC THEO THẺ QUA LINK CHIA SẺ — DEMO DOM-BASED XSS
-   ─────────────────────────────────────────────
-   Tính năng THẬT của blog: bấm vào 1 thẻ ngôn ngữ → lọc bài viết VÀ
-   cập nhật URL thành /?tag=<tên thẻ> để người dùng copy gửi cho người
-   khác ("xem các bài Python ở đây nè: codeblog.local/?tag=Python").
-
-   SOURCE của DOM-XSS: location.search (đọc bằng URLSearchParams) —
-   khi trang tải xong, JS tự lấy giá trị "tag" từ chính URL và:
-     - lọc danh sách bài viết theo thẻ đó (so khớp gần đúng, không
-       cần khớp tuyệt đối — giống nhiều bộ lọc thực tế)
-     - hiển thị banner "Đang lọc theo thẻ: ..." ngay trên đầu danh sách
-
-   SINK (chế độ Vulnerable): banner được ghi bằng innerHTML, nối thẳng
-   giá trị "tag" vào chuỗi HTML — không có request nào tới server ở
-   bước này, toàn bộ nằm trong JS chạy trên trình duyệt nạn nhân.
-   ═══════════════════════════════════════════ */
 
 function filterByTagAndShare(tag) {
   const url = new URL(window.location.href);
@@ -249,7 +182,7 @@ function renderTagFilterBanner(tagValue) {
     banner.innerHTML = `
       <div class="tag-filter-banner">
         🏷️ Đang lọc bài viết theo thẻ: <strong>${tagValue}</strong>
-        <button class="clear-filter-btn" onclick="clearTagFilter()">✕ Bỏ lọc</button>
+        <button class="clear-filter-btn" data-action="clearTag">✕ Bỏ lọc</button>
       </div>`;
   } else {
     /* ✅ SECURE — dựng DOM bằng createElement/textContent, giá trị từ
@@ -287,7 +220,7 @@ function renderTagAttackHint(currentTag) {
       : '⚠️ Dán link này vào thanh địa chỉ (hoặc gửi cho "nạn nhân") để kiểm chứng:'}
     </p>
     <code class="attack-url" id="tagAttackUrlText">${escapeHtml(attackUrl)}</code>
-    <button class="copy-link-btn" onclick="copyTagAttackUrl()">📋 Copy link</button>
+    <button class="copy-link-btn" data-action="copyAttackUrl">📋 Copy link</button>
   `;
 }
 
@@ -306,14 +239,19 @@ function showToast(msg, success = false) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// Khi đổi Vulnerable/Secure: render lại nếu đang có filter/search active
+
 window.addEventListener('xssmodechange', () => {
   const tag = new URLSearchParams(window.location.search).get('tag');
   if (tag) applyTagFilter(tag);
   else renderTagAttackHint('');
+});
 
-  const q = document.getElementById('searchInput').value.trim();
-  if (q) handleSearch();
+registerActions({
+  goPage,
+  filterTag: filterByTagAndShare,
+  openPost: (id) => { location.href = `/post/${id}`; },
+  clearTag: clearTagFilter,
+  copyAttackUrl: copyTagAttackUrl,
 });
 
 loadPosts();

@@ -8,36 +8,37 @@
 </head>
 <body>
 
-<!-- NAV -->
 <nav>
   <div class="nav-brand">
     <span class="blog">CODE<span style="color:var(--accent)">.</span>BLOG</span>
   </div>
   <div class="nav-links">
     <a href="{{ url_for('index') }}" class="active">Trang chủ</a>
-    <!--<a href="#" onclick="filterByCategory('web');return false;">Web</a>
-    <a href="#" onclick="filterByCategory('system');return false;">System</a>
-    <a href="#" onclick="filterByCategory('data');return false;">Data</a> -->
-    <!-- modeToggleMount được common.js tự chèn vào đây -->
   </div>
 </nav>
 
-<!-- SEARCH -->
 <div class="search-wrap">
-  <div class="search-inner">
-    <input type="text" id="searchInput" placeholder="Tìm kiếm bài viết..." onkeydown="if(event.key==='Enter') handleSearch()" />
-    <button onclick="handleSearch()">Tìm kiếm</button>
+  <form class="search-inner" method="get" action="{{ url_for('api_search') }}">
+    <input type="text" id="searchInput" name="q" value="{{ q }}" placeholder="Tìm kiếm bài viết..." />
+    <input type="hidden" name="mode" value="{{ mode }}" />
+    <button type="submit">Tìm kiếm</button>
+  </form>
+  <div class="search-status-bar" id="searchStatusBar">
+    {% if q %}
+      Kết quả tìm kiếm cho:
+      <strong>
+        {% if secure %}{{ q }}{% else %}{{ q | safe }}{% endif %}
+      </strong>
+    {% endif %}
   </div>
-  <!-- Nơi hiển thị kết quả tìm kiếm (demo Reflected XSS) -->
-  <div class="search-status-bar" id="searchStatusBar"></div>
 </div>
 
 <div class="tag-filter-zone">
-  <!-- Hiển thị bộ lọc theo thẻ hiện tại (?tag=...) -->
+
   <div id="tagFilterBanner"></div>
 </div>
 
-<!-- HERO -->
+
 <div class="hero">
   <div class="hero-img-wrap">
     <div class="code-float tl">def hello():<br>&nbsp;&nbsp;print("Hello")<br>&nbsp;&nbsp;return True</div>
@@ -50,7 +51,7 @@
   </div>
 </div>
 
-<!-- MAIN LAYOUT -->
+
 <div class="container">
   <main>
     <div class="posts-list" id="postsList"></div>
@@ -61,20 +62,19 @@
     <div class="sidebar-section">
       <div class="sidebar-title">🏷️ Ngôn ngữ</div>
       <div class="lang-tag-list" id="langTagList"></div>
-      <!-- <p class="sidebar-note">Bấm vào 1 thẻ để lọc — link sẽ tự cập nhật (<code>?tag=...</code>) để bạn copy chia sẻ cho người khác.</p> -->
     </div>
     <div class="sidebar-section">
       <div class="sidebar-title">🔥 Phổ biến nhất</div>
       <ul class="popular-list" id="popularList"></ul>
     </div>
-    <!-- <div class="sidebar-section" id="tagAttackHint"></div> -->
+
   </aside>
 </div>
 
-<!-- TOAST -->
+
 <div class="toast" id="toast"></div>
 
-<!-- FOOTER -->
+
 <footer>
   <p>Made with ❤️ by <span>CodeBlog</span> &nbsp;|&nbsp; © 2026 &nbsp;|&nbsp; Chia sẻ kiến thức lập trình</p>
 </footer>

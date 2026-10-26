@@ -1,10 +1,6 @@
-/* ═══════════════════════════════════════════
-   post.js — trang chi tiết bài viết
-   DEMO STORED XSS: nội dung bình luận được server lưu nguyên văn.
-   Bất kỳ ai mở lại trang /post/<id> này đều load lại comment đó.
-   Vulnerable: render bằng innerHTML không encode.
-   Secure: render bằng escapeHtml() / textContent.
-   ═══════════════════════════════════════════ */
+/* POST_ID lấy từ data-post-id (không dùng <script> inline vì CSP) */
+const POST_ID = Number(document.body.dataset.postId);
+
 const API = '/api';
 
 async function loadComments() {
@@ -89,6 +85,8 @@ function showToast(msg, success = false) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
 }
+
+registerActions({ submitComment });
 
 window.addEventListener('xssmodechange', () => {
   loadComments();
