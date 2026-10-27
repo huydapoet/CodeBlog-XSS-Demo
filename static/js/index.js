@@ -14,7 +14,7 @@ async function loadPosts() {
     renderPosts();
     renderSidebar();
     // Sau khi có dữ liệu bài viết, áp dụng bộ lọc tag nếu URL có sẵn
-    // (ví dụ người dùng vừa bấm vào 1 link chia sẻ dạng /?tag=...)
+    // (ví dụ người dùng vừa bấm vào 1 link chia sẻ dạng /#tag=...)
     applyTagFromUrl();
     // Và nếu URL có sẵn ?q=..., tự chạy tìm kiếm (kịch bản bấm vào
     // link reflected-XSS mà kẻ tấn công gửi, không cần tự gõ)
@@ -135,14 +135,17 @@ async function applySearchFromUrl() {
 }
 
 function filterByTagAndShare(tag) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('tag', tag);
-  history.pushState(null, '', url);
+  // Dùng hash fragment (#tag=...) thay vì query string (?tag=...)
+  // để giá trị tag KHÔNG bao giờ được gửi lên server.
+  history.pushState(null, '', `#tag=${encodeURIComponent(tag)}`);
   applyTagFilter(tag);
 }
 
 function applyTagFromUrl() {
-  const tag = new URLSearchParams(window.location.search).get('tag');
+  // Đọc tag từ hash fragment (#tag=...) thay vì query string
+  const hash = window.location.hash; // e.g. "#tag=JavaScript"
+  const match = hash.match(/^#tag=(.+)$/);
+  const tag = match ? decodeURIComponent(match[1]) : null;
   if (tag) applyTagFilter(tag);
   else renderTagAttackHint('');
 }
@@ -161,9 +164,8 @@ function applyTagFilter(tagValue) {
 }
 
 function clearTagFilter() {
-  const url = new URL(window.location.href);
-  url.searchParams.delete('tag');
-  history.replaceState(null, '', url);
+  // Xoá hash fragment thay vì xoá query param
+  history.replaceState(null, '', window.location.pathname + window.location.search);
   document.getElementById('tagFilterBanner').innerHTML = '';
   filteredPosts = [...allPosts];
   currentPage = 1;
@@ -211,7 +213,7 @@ function renderTagAttackHint(currentTag) {
   if (!mount) return;
   const secure = getMode() === 'secure';
   const payload = '<img src=x onerror=alert(document.cookie)>';
-  const attackUrl = `${window.location.origin}${window.location.pathname}?tag=${encodeURIComponent(payload)}`;
+  const attackUrl = `${window.location.origin}${window.location.pathname}#tag=${encodeURIComponent(payload)}`;
 
   mount.innerHTML = `
     <div class="sidebar-title">🧪 Thử DOM-XSS qua link lọc</div>
@@ -241,9 +243,26 @@ function showToast(msg, success = false) {
 
 
 window.addEventListener('xssmodechange', () => {
-  const tag = new URLSearchParams(window.location.search).get('tag');
+  const hash = window.location.hash;
+  const match = hash.match(/^#tag=(.+)$/);
+  const tag = match ? decodeURIComponent(match[1]) : null;
   if (tag) applyTagFilter(tag);
   else renderTagAttackHint('');
+});
+
+// Xử lý nút Back/Forward khi hash thay đổi
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash;
+  const match = hash.match(/^#tag=(.+)$/);
+  const tag = match ? decodeURIComponent(match[1]) : null;
+  if (tag) applyTagFilter(tag);
+  else {
+    document.getElementById('tagFilterBanner').innerHTML = '';
+    filteredPosts = [...allPosts];
+    currentPage = 1;
+    renderPosts();
+    renderTagAttackHint('');
+  }
 });
 
 registerActions({
